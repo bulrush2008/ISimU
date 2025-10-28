@@ -89,9 +89,10 @@ class VTKReader:
         else:
             vertices = np.array([])
 
-        # 获取单元信息
+        # 获取单元信息和面片
         cells = grid.GetCells()
         num_cells = grid.GetNumberOfCells()
+        faces = self._extract_faces_from_unstructured_grid(grid)
 
         # 获取点数据和单元数据
         point_data = {}
@@ -119,6 +120,7 @@ class VTKReader:
             'type': 'UnstructuredGrid',
             'block_index': block_index,
             'vertices': vertices,
+            'faces': faces,
             'num_points': vertices.shape[0] if vertices.size > 0 else 0,
             'num_cells': num_cells,
             'point_data': point_data,
@@ -154,6 +156,44 @@ class VTKReader:
             'num_points': vertices.shape[0] if vertices.size > 0 else 0,
             'point_data': point_data
         }
+
+    def _extract_faces_from_unstructured_grid(self, grid) -> Optional[np.ndarray]:
+        """从非结构网格中提取三角形面片"""
+        try:
+            # 使用VTK的几何过滤器提取表面
+            geometry_filter = vtk.vtkGeometryFilter()
+            geometry_filter.SetInputData(grid)
+            geometry_filter.Update()
+
+            surface = geometry_filter.GetOutput()
+            if not surface or surface.GetNumberOfPolys() == 0:
+                # 如果没有表面多边形，尝试提取外部面
+                dataset_surface_filter = vtk.vtkDataSetSurfaceFilter()
+                dataset_surface_filter.SetInputData(grid)
+                dataset_surface_filter.Update()
+                surface = dataset_surface_filter.GetOutput()
+
+            if not surface or surface.GetNumberOfPolys() == 0:
+                print("  [WARNING] No surface polygons found in grid")
+                return None
+
+            # 提取三角形面片
+            faces = []
+            for i in range(surface.GetNumberOfCells()):
+                cell = surface.GetCell(i)
+                if cell.GetNumberOfPoints() == 3:  # 三角形
+                    face_vertices = [cell.GetPointId(j) for j in range(3)]
+                    faces.append(face_vertices)
+
+            if len(faces) == 0:
+                print("  [WARNING] No triangular faces found")
+                return None
+
+            return np.array(faces, dtype=np.int32)
+
+        except Exception as e:
+            print(f"  [WARNING] Failed to extract faces: {e}")
+            return None
 
     def _vtk_array_to_numpy(self, vtk_array) -> np.ndarray:
         """将VTK数组转换为numpy数组"""

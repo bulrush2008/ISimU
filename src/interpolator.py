@@ -2,34 +2,43 @@
 网格插值模块
 
 将非结构网格数据插值到均匀笛卡尔网格
+使用SDF判断血管内外的位置
 """
 
 import numpy as np
 from scipy.interpolate import griddata, LinearNDInterpolator, NearestNDInterpolator
 from typing import Dict, Any, Tuple, Optional, List
 import warnings
+from sdf_utils import VascularSDF, create_sdf_from_vtk_data
 
 
 class GridInterpolator:
     """网格插值器"""
 
     def __init__(self,
-                 grid_size: Tuple[int, int, int] = (64, 64, 64),
+                 grid_size: Tuple[int, int, int] = (128, 128, 128),
                  bounds: Optional[Tuple[float, float, float, float, float, float]] = None,
-                 method: str = 'linear'):
+                 method: str = 'linear',
+                 out_of_domain_value: float = -1.0,
+                 use_sdf: bool = True):
         """
         初始化插值器
 
         Args:
-            grid_size: 笛卡尔网格尺寸 (nx, ny, nz)
-            bounds: 边界范围 (xmin, xmax, ymin, ymax, zmin, zmax)
+            grid_size: 笛卡尔网格尺寸 (nx, ny, nz)，默认为128x128x128
+            bounds: 边界范围 (xmin, xmax, ymin, ymax, zmin, zmax)，默认使用原始数据范围
             method: 插值方法 ('linear', 'nearest', 'cubic')
+            out_of_domain_value: 域外点的赋值，默认为-1.0
+            use_sdf: 是否使用SDF判断血管内外，默认为True
         """
         self.grid_size = grid_size
         self.method = method
         self.bounds = bounds
+        self.out_of_domain_value = out_of_domain_value
+        self.use_sdf = use_sdf
         self.cartesian_grid = None
         self.interpolators = {}
+        self.sdf_calculator = None
 
     def setup_cartesian_grid(self, vertices: np.ndarray) -> None:
         """
@@ -84,6 +93,7 @@ class GridInterpolator:
 
         vertices = source_block['vertices']
         point_data = source_block['point_data']
+        cell_data = source_block.get('cell_data', {})
 
         # 设置笛卡尔网格
         self.setup_cartesian_grid(vertices)
@@ -95,9 +105,34 @@ class GridInterpolator:
             self.cartesian_grid[2].ravel()
         ])
 
+        # 创建SDF计算器
+        if self.use_sdf:
+            print("Creating SDF calculator...")
+            self.sdf_calculator = create_sdf_from_vtk_data(vtk_data)
+            if self.sdf_calculator is not None:
+                print("  [OK] SDF calculator created successfully")
+                # 判断血管内外的点
+                inside_mask, outside_mask = self.sdf_calculator.get_inside_outside_mask(query_points)
+                inside_count = np.sum(inside_mask)
+                outside_count = np.sum(outside_mask)
+                total_count = len(query_points)
+                print(f"  - Inside vessel: {inside_count:,} ({inside_count/total_count*100:.1f}%)")
+                print(f"  - Outside vessel: {outside_count:,} ({outside_count/total_count*100:.1f}%)")
+            else:
+                print("  [WARNING] Failed to create SDF calculator, using all points")
+                inside_mask = np.ones(len(query_points), dtype=bool)
+                outside_mask = np.zeros(len(query_points), dtype=bool)
+        else:
+            print("SDF disabled, using all points for interpolation")
+            inside_mask = np.ones(len(query_points), dtype=bool)
+            outside_mask = np.zeros(len(query_points), dtype=bool)
+
+        # 合并点数据和单元数据的字段名
+        all_available_fields = list(point_data.keys()) + list(cell_data.keys())
+
         # 确定要插值的场
         if fields is None:
-            fields = list(point_data.keys())
+            fields = all_available_fields
 
         print(f"Starting interpolation, fields: {fields}")
 
@@ -109,18 +144,32 @@ class GridInterpolator:
                 'y': self.cartesian_grid[1],
                 'z': self.cartesian_grid[2]
             },
-            'fields': {}
+            'fields': {},
+            'sdf_used': self.use_sdf and self.sdf_calculator is not None,
+            'inside_point_count': np.sum(inside_mask),
+            'outside_point_count': np.sum(outside_mask)
         }
 
         # 对每个场变量进行插值
         for field_name in fields:
-            if field_name not in point_data:
+            field_values = None
+            data_source = None
+
+            # 首先在点数据中查找
+            if field_name in point_data:
+                field_values = point_data[field_name]
+                data_source = 'point_data'
+            # 然后在单元数据中查找
+            elif field_name in cell_data:
+                field_values = cell_data[field_name]
+                data_source = 'cell_data'
+            else:
                 warnings.warn(f"场变量 '{field_name}' 不存在，跳过")
                 continue
 
-            field_values = point_data[field_name]
-            interpolated_data = self._interpolate_field(
-                vertices, field_values, query_points, field_name
+            print(f"  Processing {field_name} from {data_source}")
+            interpolated_data = self._interpolate_field_with_sdf(
+                vertices, field_values, query_points, field_name, inside_mask, outside_mask
             )
 
             # 重新整形为网格形状
@@ -157,17 +206,17 @@ class GridInterpolator:
             if self.method == 'linear':
                 interpolated = griddata(
                     vertices, values, query_points,
-                    method='linear', fill_value=0.0
+                    method='linear', fill_value=self.out_of_domain_value
                 )
             elif self.method == 'nearest':
                 interpolated = griddata(
                     vertices, values, query_points,
-                    method='nearest', fill_value=0.0
+                    method='nearest', fill_value=self.out_of_domain_value
                 )
             elif self.method == 'cubic':
                 interpolated = griddata(
                     vertices, values, query_points,
-                    method='cubic', fill_value=0.0
+                    method='cubic', fill_value=self.out_of_domain_value
                 )
             else:
                 raise ValueError(f"不支持的插值方法: {self.method}")
@@ -177,8 +226,297 @@ class GridInterpolator:
             # 回退到最近邻插值
             interpolated = griddata(
                 vertices, values, query_points,
-                method='nearest', fill_value=0.0
+                method='nearest', fill_value=self.out_of_domain_value
             )
+
+        return interpolated
+
+    def _interpolate_field_with_sdf(self,
+                                   vertices: np.ndarray,
+                                   values: np.ndarray,
+                                   query_points: np.ndarray,
+                                   field_name: str,
+                                   inside_mask: np.ndarray,
+                                   outside_mask: np.ndarray) -> np.ndarray:
+        """
+        使用SDF判断进行插值（符合CLAUDE.md需求）
+
+        Args:
+            vertices: 源网格顶点坐标
+            values: 源网格上的场变量值
+            query_points: 查询点坐标
+            field_name: 场变量名称
+            inside_mask: 血管内部的点掩码
+            outside_mask: 血管外部的点掩码
+
+        Returns:
+            插值后的场变量值
+        """
+        # 处理标量场和矢量场
+        if len(values.shape) == 1:
+            # 标量场
+            return self._interpolate_scalar_field_with_sdf(
+                vertices, values, query_points, field_name, inside_mask, outside_mask
+            )
+        else:
+            # 矢量场
+            return self._interpolate_vector_field_with_sdf(
+                vertices, values, query_points, field_name, inside_mask, outside_mask
+            )
+
+    def _interpolate_scalar_field_with_sdf(self,
+                                          vertices: np.ndarray,
+                                          values: np.ndarray,
+                                          query_points: np.ndarray,
+                                          field_name: str,
+                                          inside_mask: np.ndarray,
+                                          outside_mask: np.ndarray) -> np.ndarray:
+        """插值标量场"""
+        # 初始化结果数组
+        interpolated = np.full(len(query_points), self.out_of_domain_value, dtype=values.dtype)
+
+        # 只对血管内部的点进行插值
+        if np.sum(inside_mask) > 0:
+            inside_points = query_points[inside_mask]
+
+            try:
+                # 使用scipy的griddata进行插值
+                if self.method == 'linear':
+                    inside_values = griddata(
+                        vertices, values, inside_points,
+                        method='linear', fill_value=self.out_of_domain_value
+                    )
+                elif self.method == 'nearest':
+                    inside_values = griddata(
+                        vertices, values, inside_points,
+                        method='nearest', fill_value=self.out_of_domain_value
+                    )
+                elif self.method == 'cubic':
+                    inside_values = griddata(
+                        vertices, values, inside_points,
+                        method='cubic', fill_value=self.out_of_domain_value
+                    )
+                else:
+                    raise ValueError(f"不支持的插值方法: {self.method}")
+
+                # 将插值结果放回原位
+                interpolated[inside_mask] = inside_values
+
+            except Exception as e:
+                print(f"插值失败 {field_name}: {e}")
+                # 回退到最近邻插值
+                try:
+                    inside_values = griddata(
+                        vertices, values, inside_points,
+                        method='nearest', fill_value=self.out_of_domain_value
+                    )
+                    interpolated[inside_mask] = inside_values
+                except Exception as e2:
+                    print(f"最近邻插值也失败 {field_name}: {e2}")
+                    # 保持域外值不变
+
+        # 血管外部的点保持域外值（-1）
+        interpolated[outside_mask] = self.out_of_domain_value
+
+        return interpolated
+
+    def _interpolate_vector_field_with_sdf(self,
+                                          vertices: np.ndarray,
+                                          values: np.ndarray,
+                                          query_points: np.ndarray,
+                                          field_name: str,
+                                          inside_mask: np.ndarray,
+                                          outside_mask: np.ndarray) -> np.ndarray:
+        """插值矢量场"""
+        num_components = values.shape[1]
+        num_points = len(query_points)
+
+        # 初始化结果数组
+        interpolated = np.full((num_points, num_components), self.out_of_domain_value, dtype=values.dtype)
+
+        # 只对血管内部的点进行插值
+        if np.sum(inside_mask) > 0:
+            inside_points = query_points[inside_mask]
+
+            # 对每个分量分别插值
+            for component in range(num_components):
+                component_values = values[:, component]
+
+                try:
+                    # 使用scipy的griddata进行插值
+                    if self.method == 'linear':
+                        inside_values = griddata(
+                            vertices, component_values, inside_points,
+                            method='linear', fill_value=self.out_of_domain_value
+                        )
+                    elif self.method == 'nearest':
+                        inside_values = griddata(
+                            vertices, component_values, inside_points,
+                            method='nearest', fill_value=self.out_of_domain_value
+                        )
+                    elif self.method == 'cubic':
+                        inside_values = griddata(
+                            vertices, component_values, inside_points,
+                            method='cubic', fill_value=self.out_of_domain_value
+                        )
+                    else:
+                        raise ValueError(f"不支持的插值方法: {self.method}")
+
+                    # 将插值结果放回原位
+                    interpolated[inside_mask, component] = inside_values
+
+                except Exception as e:
+                    print(f"插值失败 {field_name}[{component}]: {e}")
+                    # 回退到最近邻插值
+                    try:
+                        inside_values = griddata(
+                            vertices, component_values, inside_points,
+                            method='nearest', fill_value=self.out_of_domain_value
+                        )
+                        interpolated[inside_mask, component] = inside_values
+                    except Exception as e2:
+                        print(f"最近邻插值也失败 {field_name}[{component}]: {e2}")
+                        # 保持域外值不变
+
+        # 血管外部的点保持域外值（-1）
+        interpolated[outside_mask] = self.out_of_domain_value
+
+        return interpolated
+
+    def interpolate_with_custom_methods(self, vtk_data: Dict[str, Any],
+                                      fields: Optional[List[str]] = None,
+                                      method_type: str = 'nearest') -> Dict[str, Any]:
+        """
+        使用自定义插值方法进行插值（符合CLAUDE.md需求）
+
+        Args:
+            vtk_data: VTK读取的数据
+            fields: 需要插值的物理场变量列表
+            method_type: 插值方法类型 ('nearest' 或 'average')
+                        - 'nearest': 使用最近的网格直接赋值
+                        - 'average': 使用临界的3个网格值的平均值
+
+        Returns:
+            插值后的笛卡尔网格数据
+        """
+        # 提取第一个非空数据块
+        source_block = None
+        for block in vtk_data['blocks']:
+            if block['num_points'] > 0:
+                source_block = block
+                break
+
+        if source_block is None:
+            raise ValueError("没有找到有效的数据块")
+
+        vertices = source_block['vertices']
+        point_data = source_block['point_data']
+
+        # 设置笛卡尔网格
+        self.setup_cartesian_grid(vertices)
+
+        # 准备插值点坐标
+        query_points = np.column_stack([
+            self.cartesian_grid[0].ravel(),
+            self.cartesian_grid[1].ravel(),
+            self.cartesian_grid[2].ravel()
+        ])
+
+        # 确定要插值的场
+        if fields is None:
+            fields = list(point_data.keys())
+
+        print(f"Starting custom interpolation, method: {method_type}, fields: {fields}")
+
+        result = {
+            'grid_size': self.grid_size,
+            'bounds': self.bounds,
+            'grid_coordinates': {
+                'x': self.cartesian_grid[0],
+                'y': self.cartesian_grid[1],
+                'z': self.cartesian_grid[2]
+            },
+            'fields': {},
+            'interpolation_method': f'custom_{method_type}'
+        }
+
+        # 对每个场变量进行插值
+        for field_name in fields:
+            if field_name not in point_data:
+                warnings.warn(f"场变量 '{field_name}' 不存在，跳过")
+                continue
+
+            field_values = point_data[field_name]
+            interpolated_data = self._interpolate_field_custom(
+                vertices, field_values, query_points, field_name, method_type
+            )
+
+            # 重新整形为网格形状
+            if len(interpolated_data.shape) == 1:  # 标量场
+                interpolated_data = interpolated_data.reshape(self.grid_size)
+            else:  # 矢量场或张量场
+                new_shape = self.grid_size + (interpolated_data.shape[-1],)
+                interpolated_data = interpolated_data.reshape(new_shape)
+
+            result['fields'][field_name] = interpolated_data
+            print(f"  [OK] {field_name}: {field_values.shape} -> {interpolated_data.shape}")
+
+        return result
+
+    def _interpolate_field_custom(self,
+                                 vertices: np.ndarray,
+                                 values: np.ndarray,
+                                 query_points: np.ndarray,
+                                 field_name: str,
+                                 method_type: str = 'nearest') -> np.ndarray:
+        """
+        使用自定义方法插值单个场变量
+
+        Args:
+            vertices: 源网格顶点坐标
+            values: 源网格上的场变量值
+            query_points: 查询点坐标
+            field_name: 场变量名称
+            method_type: 插值方法类型 ('nearest' 或 'average')
+
+        Returns:
+            插值后的场变量值
+        """
+        from scipy.spatial import cKDTree
+
+        # 构建KD树用于快速最近邻搜索
+        tree = cKDTree(vertices)
+
+        # 查找每个查询点的最近邻
+        if method_type == 'nearest':
+            # 方法1：使用最近的网格直接赋值
+            distances, indices = tree.query(query_points, k=1)
+            interpolated = values[indices]
+
+            # 对于k=1，distances是1维数组
+            distance_threshold = np.percentile(distances, 95)
+            out_of_domain_mask = distances > distance_threshold * 2.0
+
+        elif method_type == 'average':
+            # 方法2：使用临界的3个网格值的平均值
+            distances, indices = tree.query(query_points, k=3)
+
+            if len(values.shape) == 1:
+                # 标量场
+                interpolated = np.mean(values[indices], axis=1)
+            else:
+                # 矢量场或张量场
+                interpolated = np.mean(values[indices], axis=1)
+
+            # 对于k>1，distances是2维数组
+            distance_threshold = np.percentile(distances[:, 2], 95)
+            out_of_domain_mask = distances[:, 0] > distance_threshold * 2.0
+        else:
+            raise ValueError(f"不支持的自定义插值方法: {method_type}")
+
+        # 对于距离过远的点，设置为域外值
+
+        interpolated[out_of_domain_mask] = self.out_of_domain_value
 
         return interpolated
 

@@ -26,13 +26,19 @@ def main():
     output_vtk = os.path.join(base_dir, "matrix_data", "output_vessel_170.vts")
 
     # Interpolation parameters
-    grid_size = (32, 32, 32)
+    grid_size = (32, 32, 32)  # 用32x32x32网格进行快速测试，验证默认128x128x128的功能
     interpolation_method = 'linear'
+    use_custom_method = True  # 使用自定义插值方法
+    custom_method_type = 'nearest'  # 'nearest' 或 'average'
 
     print(f"Configuration:")
     print(f"  - Input file: {vtm_file}")
     print(f"  - Grid size: {grid_size}")
-    print(f"  - Interpolation method: {interpolation_method}")
+    print(f"  - Use custom method: {use_custom_method}")
+    if use_custom_method:
+        print(f"  - Custom interpolation: {custom_method_type}")
+    else:
+        print(f"  - Interpolation method: {interpolation_method}")
     print(f"  - Output HDF5: {output_h5}")
     print(f"  - Output VTK: {output_vtk}\n")
 
@@ -52,14 +58,22 @@ def main():
         print(f"\nStep 2: Performing grid interpolation...")
         interpolator = GridInterpolator(
             grid_size=grid_size,
-            method=interpolation_method
+            method=interpolation_method,
+            out_of_domain_value=-1.0  # 设置域外值为-1.0
         )
 
         # Select field variables to interpolate
         fields_to_interpolate = available_fields[:3] if len(available_fields) > 3 else available_fields
         print(f"  - Interpolating fields: {fields_to_interpolate}")
 
-        interpolated_data = interpolator.interpolate(vtk_data, fields_to_interpolate)
+        if use_custom_method:
+            # 使用自定义插值方法
+            interpolated_data = interpolator.interpolate_with_custom_methods(
+                vtk_data, fields_to_interpolate, custom_method_type
+            )
+        else:
+            # 使用标准插值方法
+            interpolated_data = interpolator.interpolate(vtk_data, fields_to_interpolate)
 
         # Get interpolation statistics
         stats = interpolator.get_interpolation_statistics(interpolated_data)
