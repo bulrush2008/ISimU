@@ -19,9 +19,11 @@ def main():
     print("=== ISimU Complete Data Processing Pipeline ===\n")
 
     # Configuration
-    vtm_file = "../Data/vessel.000170.vtm"
-    output_h5 = "../Data/output_vessel_170.h5"
-    output_vtk = "../Data/output_vessel_170.vts"
+    import os
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    vtm_file = os.path.join(base_dir, "Data", "vessel.000170.vtm")
+    output_h5 = os.path.join(base_dir, "matrix_data", "output_vessel_170.h5")
+    output_vtk = os.path.join(base_dir, "matrix_data", "output_vessel_170.vts")
 
     # Interpolation parameters
     grid_size = (32, 32, 32)
@@ -120,7 +122,9 @@ def test_data_validation():
         from hdf5_storage import HDF5Storage
 
         # Load previously generated HDF5 file
-        h5_file = "../Data/output_vessel_170.h5"
+        import os
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        h5_file = os.path.join(base_dir, "matrix_data", "output_vessel_170.h5")
         if not os.path.exists(h5_file):
             print("  Skipping validation: HDF5 file not found")
             return

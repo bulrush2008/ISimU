@@ -20,8 +20,8 @@ def main():
 
     # 配置参数
     vtm_file = "../Data/vessel.000170.vtm"
-    output_h5 = "../Data/output_vessel_170.h5"
-    output_vtk = "../Data/output_vessel_170.vts"
+    output_h5 = "../matrix_data/output_vessel_170.h5"
+    output_vtk = "../matrix_data/output_vessel_170.vts"
 
     # 插值参数
     grid_size = (32, 32, 32)  # 可以调整这个值来改变输出网格密度
@@ -120,7 +120,7 @@ def test_data_validation():
         from hdf5_storage import HDF5Storage
 
         # 加载之前生成的HDF5文件
-        h5_file = "../Data/output_vessel_170.h5"
+        h5_file = "../matrix_data/output_vessel_170.h5"
         if not os.path.exists(h5_file):
             print("  跳过验证：HDF5文件不存在")
             return

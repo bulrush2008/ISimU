@@ -1,4 +1,5 @@
 
 Data/*
+matrix_data/*
 src/__pycache__/*
 .venv/
