@@ -2,6 +2,7 @@
 符号距离场（SDF）工具模块
 
 用于判断笛卡尔网格点是否在血管内部
+支持从STL几何文件计算真实的符号距离场
 """
 
 import numpy as np
@@ -9,6 +10,7 @@ import trimesh
 from scipy.spatial import cKDTree
 from typing import Tuple, Optional, List, Dict, Any
 import warnings
+from stl_reader import load_portal_vein_geometry
 
 
 class VascularSDF:
@@ -65,20 +67,50 @@ class VascularSDF:
 
         return normals
 
-    def compute_sdf(self, points: np.ndarray) -> np.ndarray:
+    def compute_sdf(self, points: np.ndarray, batch_size: int = 1000) -> np.ndarray:
         """
         计算一组点的符号距离场值
 
         Args:
             points: 查询点坐标 (N, 3)
+            batch_size: 批处理大小，避免内存溢出（默认减少到1000）
 
         Returns:
             符号距离场值 (N,)
         """
-        if self.mesh is not None:
-            return self._compute_sdf_trimesh(points)
+        if len(points) <= batch_size:
+            # 单批次处理
+            if self.mesh is not None:
+                return self._compute_sdf_trimesh(points)
+            else:
+                return self._compute_sdf_approximate(points)
         else:
-            return self._compute_sdf_approximate(points)
+            # 分批处理大量点
+            num_points = len(points)
+            sdf_values = np.zeros(num_points)
+
+            print(f"  Processing {num_points:,} points in batches of {batch_size:,}")
+
+            for i in range(0, num_points, batch_size):
+                end_idx = min(i + batch_size, num_points)
+                batch_points = points[i:end_idx]
+
+                if self.mesh is not None:
+                    try:
+                        batch_sdf = self._compute_sdf_trimesh(batch_points)
+                    except MemoryError:
+                        print(f"    Memory error at batch {i//batch_size + 1}, switching to approximate method")
+                        batch_sdf = self._compute_sdf_approximate(batch_points)
+                else:
+                    batch_sdf = self._compute_sdf_approximate(batch_points)
+
+                sdf_values[i:end_idx] = batch_sdf
+
+                # 进度输出（更频繁以显示详细进度）
+                if (i // batch_size + 1) % 5 == 0 or end_idx == num_points:
+                    print(f"    Processed {end_idx:,}/{num_points:,} points ({end_idx/num_points*100:.1f}%)")
+
+            return sdf_values
 
     def _compute_sdf_trimesh(self, points: np.ndarray) -> np.ndarray:
         """使用trimesh计算精确SDF"""
@@ -189,6 +221,7 @@ def extract_surface_from_vtk_data(vtk_data: Dict[str, Any]) -> Optional[Tuple[np
 def create_sdf_from_vtk_data(vtk_data: Dict[str, Any]) -> Optional[VascularSDF]:
     """
     从VTK数据创建SDF计算器
+    首先尝试从STL文件创建，如果失败则尝试从VTK数据提取表面
 
     Args:
         vtk_data: VTK读取的数据
@@ -196,6 +229,26 @@ def create_sdf_from_vtk_data(vtk_data: Dict[str, Any]) -> Optional[VascularSDF]:
     Returns:
         VascularSDF对象或None
     """
+    # 首先尝试从STL文件创建SDF（根据CLAUDE.md需求）
+    print("Attempting to create SDF from STL geometry...")
+    stl_data = load_portal_vein_geometry()
+
+    if stl_data is not None:
+        print("  [OK] Successfully loaded STL geometry for SDF calculation")
+        vertices = stl_data['vertices']
+        faces = stl_data['faces']
+
+        # 创建SDF计算器
+        sdf = VascularSDF(vertices, faces)
+
+        # 设置几何信息
+        sdf.stl_data = stl_data
+
+        return sdf
+
+    print("  [WARNING] Failed to load STL geometry, trying VTK surface extraction...")
+
+    # 回退到VTK表面提取
     surface_data = extract_surface_from_vtk_data(vtk_data)
 
     if surface_data is None:
