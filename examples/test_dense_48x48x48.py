@@ -10,7 +10,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
 from data_reader import VTKReader
 from interpolator import GridInterpolator
 from hdf5_storage import HDF5Storage
-from sdf_utils import load_portal_vein_geometry
+from stl_reader import load_portal_vein_geometry
 import numpy as np
 import h5py
 
