@@ -162,9 +162,25 @@ class GridInterpolator:
 
         # 添加SDF值作为字段
         if sdf_values is not None:
+            # 确保SDF值的符号正确：
+            # - 正值：血管内部，距离血管壁的距离
+            # - 负值：血管外部，距离血管壁的距离的负值
             sdf_field = sdf_values.reshape(self.grid_size)
             result['fields']['SDF'] = sdf_field
             print(f"  [OK] SDF: ({sdf_values.size}) -> {sdf_field.shape}")
+
+            # 验证SDF值分布
+            positive_count = np.sum(sdf_values > 0)
+            negative_count = np.sum(sdf_values < 0)
+            zero_count = np.sum(sdf_values == 0)
+            print(f"    - Positive (inside): {positive_count} ({positive_count/len(sdf_values)*100:.1f}%)")
+            print(f"    - Negative (outside): {negative_count} ({negative_count/len(sdf_values)*100:.1f}%)")
+            print(f"    - Zero (on surface): {zero_count} ({zero_count/len(sdf_values)*100:.1f}%)")
+
+            if positive_count > 0:
+                print(f"    - Positive range: [{np.min(sdf_values[sdf_values > 0]):.6e}, {np.max(sdf_values[sdf_values > 0]):.6e}]")
+            if negative_count > 0:
+                print(f"    - Negative range: [{np.min(sdf_values[sdf_values < 0]):.6e}, {np.max(sdf_values[sdf_values < 0]):.6e}]")
 
         # 对每个场变量进行插值
         for field_name in fields:
