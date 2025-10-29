@@ -106,11 +106,16 @@ class GridInterpolator:
         ])
 
         # 创建SDF计算器
+        sdf_values = None
         if self.use_sdf:
             print("Creating SDF calculator...")
             self.sdf_calculator = create_sdf_from_vtk_data(vtk_data)
             if self.sdf_calculator is not None:
                 print("  [OK] SDF calculator created successfully")
+                # 计算SDF值
+                print("  Computing SDF values for all grid points...")
+                sdf_values = self.sdf_calculator.compute_sdf(query_points)
+
                 # 判断血管内外的点
                 inside_mask, outside_mask = self.sdf_calculator.get_inside_outside_mask(query_points)
                 inside_count = np.sum(inside_mask)
@@ -118,14 +123,19 @@ class GridInterpolator:
                 total_count = len(query_points)
                 print(f"  - Inside vessel: {inside_count:,} ({inside_count/total_count*100:.1f}%)")
                 print(f"  - Outside vessel: {outside_count:,} ({outside_count/total_count*100:.1f}%)")
+                print(f"  - SDF range: [{np.min(sdf_values):.3e}, {np.max(sdf_values):.3e}]")
             else:
                 print("  [WARNING] Failed to create SDF calculator, using all points")
                 inside_mask = np.ones(len(query_points), dtype=bool)
                 outside_mask = np.zeros(len(query_points), dtype=bool)
+                # 创建虚拟SDF值（全部为正值，表示内部）
+                sdf_values = np.ones(len(query_points)) * 1.0
         else:
             print("SDF disabled, using all points for interpolation")
             inside_mask = np.ones(len(query_points), dtype=bool)
             outside_mask = np.zeros(len(query_points), dtype=bool)
+            # 创建虚拟SDF值
+            sdf_values = np.ones(len(query_points)) * 1.0
 
         # 合并点数据和单元数据的字段名
         all_available_fields = list(point_data.keys()) + list(cell_data.keys())
@@ -149,6 +159,12 @@ class GridInterpolator:
             'inside_point_count': np.sum(inside_mask),
             'outside_point_count': np.sum(outside_mask)
         }
+
+        # 添加SDF值作为字段
+        if sdf_values is not None:
+            sdf_field = sdf_values.reshape(self.grid_size)
+            result['fields']['SDF'] = sdf_field
+            print(f"  [OK] SDF: ({sdf_values.size}) -> {sdf_field.shape}")
 
         # 对每个场变量进行插值
         for field_name in fields:
