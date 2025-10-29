@@ -19,7 +19,7 @@ class GridInterpolator:
                  grid_size: Tuple[int, int, int] = (128, 128, 128),
                  bounds: Optional[Tuple[float, float, float, float, float, float]] = None,
                  method: str = 'linear',
-                 out_of_domain_value: float = -1.0,
+                 out_of_domain_value: float = 0.0,
                  use_sdf: bool = True):
         """
         初始化插值器
@@ -28,7 +28,7 @@ class GridInterpolator:
             grid_size: 笛卡尔网格尺寸 (nx, ny, nz)，默认为128x128x128
             bounds: 边界范围 (xmin, xmax, ymin, ymax, zmin, zmax)，默认使用原始数据范围
             method: 插值方法 ('linear', 'nearest', 'cubic')
-            out_of_domain_value: 域外点的赋值，默认为-1.0
+            out_of_domain_value: 域外点的赋值，默认为0.0
             use_sdf: 是否使用SDF判断血管内外，默认为True
         """
         self.grid_size = grid_size
