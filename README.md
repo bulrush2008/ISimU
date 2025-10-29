@@ -9,11 +9,13 @@ ISimU是一个专业的CFD（计算流体动力学）代理模型开发平台，
 ### 核心特性
 
 - ✅ **VTK格式支持**：完整支持UNS求解器的VTM/VTU格式输出
-- ✅ **SDF插值算法**：基于符号距离场的血管内外判断
+- ✅ **STL几何集成**：基于真实血管几何的符号距离场计算
+- ✅ **精确SDF算法**：正确的符号距离场计算（内部>0，外部<0）
 - ✅ **多物理场支持**：压力、速度、CellID等多变量插值
 - ✅ **智能域外处理**：血管外部点自动赋值为-1.0
 - ✅ **矢量场插值**：支持3维速度场插值
 - ✅ **多格式输出**：HDF5存储 + VTK可视化
+- ✅ **内存优化**：批处理机制支持大网格计算
 
 ## 📁 项目结构
 
@@ -24,22 +26,24 @@ ISimU/
 │   ├── data_reader.py             # VTK文件读取模块
 │   ├── interpolator.py            # 网格插值模块（支持SDF）
 │   ├── hdf5_storage.py            # HDF5存储模块
-│   └── sdf_utils.py               # 符号距离场工具
+│   ├── sdf_utils.py               # 符号距离场工具
+│   └── stl_reader.py              # STL几何文件读取模块
 ├── examples/                      # 示例脚本
-│   ├── complete_pipeline_en.py    # 完整处理流程（英文）
-│   ├── complete_64x64x64_interpolation.py  # 64x64x64完整插值
-│   ├── test_custom_interpolation.py        # 自定义插值方法测试
-│   └── test_sdf_interpolation.py          # SDF插值测试
-├── tests/                         # 测试文件
-│   └── __init__.py
+│   ├── complete_64x64x64_interpolation.py     # 64x64x64完整插值
+│   ├── test_sdf_16x16x16_corrected.py        # 16x16x16 SDF验证测试
+│   ├── test_sdf_32x32x32_corrected.py        # 32x32x32 SDF验证测试
+│   ├── test_stl_sdf.py                     # STL-based SDF测试
+│   └── test_sdf_saving.py                  # SDF值保存测试
 ├── Data/                          # 原始CFD数据
-│   └── vessel.000170.vtm          # 示例血管流数据
+│   ├── vessel.000170.vtm          # 示例血管流数据
+│   └── geo/                         # 几何数据
+│       └── portal_vein_A.stl       # 门静脉血管几何（缩放0.001）
 ├── matrix_data/                   # 生成的矩阵数据
-│   ├── vessel_170_64x64x64_complete.h5   # 64x64x64插值结果
-│   └── vessel_170_64x64x64_complete.vts  # VTK可视化文件
+│   ├── vessel_170_sdf_16x16x16_corrected.h5  # 16x16x16 SDF插值结果
+│   ├── vessel_170_sdf_32x32x32_corrected.h5  # 32x32x32 SDF插值结果
+│   └── *.vts                        # VTK可视化文件
 ├── pyproject.toml                 # 项目配置
 ├── CLAUDE.md                      # 详细需求文档
-├── SDF_INTERPOLATION_UPDATE.md    # SDF插值更新总结
 └── README.md                      # 项目说明
 ```
 
@@ -63,12 +67,12 @@ source .venv/bin/activate
 或使用pip：
 
 ```bash
-pip install vtk numpy scipy h5py pandas torch matplotlib trimesh
+pip install vtk numpy scipy h5py pandas torch matplotlib trimesh rtree
 ```
 
 ### 基本使用
 
-#### 1. 简单插值示例
+#### 1. 基于STL几何的SDF插值
 
 ```python
 from src.data_reader import VTKReader
@@ -79,155 +83,236 @@ from src.hdf5_storage import HDF5Storage
 reader = VTKReader()
 vtk_data = reader.read_vtm('Data/vessel.000170.vtm')
 
-# 创建插值器（64x64x64网格，启用SDF）
+# 创建插值器（32x32x32网格，启用STL-based SDF）
 interpolator = GridInterpolator(
-    grid_size=(64, 64, 64),
+    grid_size=(32, 32, 32),
     method='linear',
     out_of_domain_value=-1.0,
     use_sdf=True
 )
 
-# 执行插值
+# 执行插值（自动加载STL几何计算SDF）
 result = interpolator.interpolate(vtk_data, ['P', 'Velocity'])
 
-# 保存结果
+# 保存结果（包含SDF字段）
 storage = HDF5Storage()
-storage.save(result, 'output.h5')
+storage.save(result, 'output_with_sdf.h5')
+
+# 转换为VTK可视化文件
+storage.convert_to_vtk('output_with_sdf.h5', 'output_with_sdf.vts')
 ```
 
-#### 2. 完整64x64x64插值
+#### 2. STL几何文件处理
 
-```bash
-# 运行完整的64x64x64网格插值
-uv run python examples/complete_64x64x64_interpolation.py
+```python
+from src.stl_reader import load_portal_vein_geometry
+
+# 加载门静脉血管几何（自动缩放0.001）
+stl_data = load_portal_vein_geometry()
+
+print(f"几何信息：")
+print(f"  - 顶点数：{stl_data['num_vertices']:,}")
+print(f"  - 面片数：{stl_data['num_faces']:,}")
+print(f"  - 缩放比例：{stl_data['scale_factor']}")
+print(f"  - 是否水密：{stl_data['is_watertight']}")
 ```
 
 #### 3. SDF插值测试
 
 ```bash
-# 测试基于SDF的插值方法
-uv run python examples/test_sdf_interpolation.py
+# 测试16x16x16网格的SDF算法
+uv run python examples/test_sdf_16x16x16_corrected.py
+
+# 测试32x32x32网格的SDF算法
+uv run python examples/test_sdf_32x32x32_corrected.py
+
+# 测试完整的STL-based SDF流程
+uv run python examples/test_stl_sdf.py
 ```
 
 ## 🔧 核心功能模块
 
-### 1. VTK数据读取 (`data_reader.py`)
+### 1. STL几何读取 (`stl_reader.py`)
 
-支持多种VTK格式：
-- **VTM多块数据集**：UNS求解器的主要输出格式
-- **VTU非结构网格**：详细的网格和场数据
-- **面片提取**：为SDF计算提供表面几何信息
+支持STL格式的血管几何文件：
+- **自动缩放**：按照CLAUDE.md要求缩放0.001
+- **路径解析**：智能检测项目根目录
+- **几何验证**：检查网格质量和水密性
 
 ```python
-reader = VTKReader()
-vtk_data = reader.read_vtm('file.vtm')
-available_fields = reader.get_available_fields(vtk_data)
+from src.stl_reader import load_portal_vein_geometry
+
+# 自动加载Data/geo/portal_vein_A.stl
+stl_data = load_portal_vein_geometry()
+vertices = stl_data['vertices']  # 已缩放的顶点坐标
+faces = stl_data['faces']        # 面片索引
 ```
 
-### 2. SDF插值器 (`interpolator.py` + `sdf_utils.py`)
+### 2. 符号距离场计算 (`sdf_utils.py`)
 
-#### 符号距离场算法
-- **φ > 0**：血管内部，执行插值
-- **φ < 0**：血管外部，直接赋值-1.0
+#### SDF定义
+- **φ > 0**：血管内部，表示到血管壁的距离
+- **φ < 0**：血管外部，表示到血管壁距离的负值
+- **φ = 0**：血管壁表面
 
-#### 插值方法
-- **标准方法**：linear、nearest、cubic
-- **自定义方法**：
-  - 最近邻直接赋值
-  - 3点平均值
+#### 技术特点
+- **真实几何**：基于STL几何的精确SDF计算
+- **批处理**：内存优化的分批计算机制
+- **容错处理**：trimesh失败时自动切换到近似方法
+
+```python
+from src.sdf_utils import VascularSDF
+
+# 创建SDF计算器
+sdf = VascularSDF(vertices, faces)
+
+# 计算查询点的SDF值
+query_points = np.array([[0.15, 0.15, 0.15], [0.3, 0.3, 0.3]])
+sdf_values = sdf.compute_sdf(query_points)  # 返回符号距离值
+```
+
+### 3. SDF插值器 (`interpolator.py`)
+
+#### 插值逻辑
+1. **计算所有网格点的SDF值**
+2. **判断点位置**：SDF > 0（内部）或 SDF < 0（外部）
+3. **分别处理**：
+   - 内部点：执行正常插值
+   - 外部点：直接赋值out_of_domain_value（默认-1.0）
 
 ```python
 interpolator = GridInterpolator(
-    grid_size=(128, 128, 128),  # 默认网格尺寸
-    out_of_domain_value=-1.0,   # 域外值
-    use_sdf=True               # 启用SDF判断
+    grid_size=(32, 32, 32),      # 网格尺寸
+    method='linear',              # 插值方法
+    out_of_domain_value=-1.0,     # 域外值
+    use_sdf=True                  # 启用SDF判断
 )
 ```
 
-### 3. HDF5存储 (`hdf5_storage.py`)
+### 4. HDF5存储 (`hdf5_storage.py`)
 
 #### 数据结构
 ```
 HDF5文件结构:
 ├── fields/                   # 物理场数据
-│   ├── P                    # 压力场 (64,64,64)
-│   ├── Velocity             # 速度场 (64,64,64,3)
-│   └── CellID               # 单元ID (64,64,64)
+│   ├── P                    # 压力场 (32,32,32)
+│   ├── Velocity             # 速度场 (32,32,32,3)
+│   ├── CellID               # 单元ID (32,32,32)
+│   └── SDF                  # 符号距离场 (32,32,32) ← 新增
 ├── grid/                    # 网格坐标
 │   ├── x, y, z             # 笛卡尔坐标
 └── metadata/                # 元数据信息
+    ├── stl_file            # STL文件信息
+    ├── scale_factor        # 缩放比例
+    └── sdf_used            # SDF使用状态
 ```
 
 #### 格式转换
 - **HDF5 → VTK**：用于ParaView可视化
-- **元数据保存**：插值参数、原始文件信息等
+- **SDF可视化**：正确显示血管内外区域
 
-## 📊 插值结果分析
+## 📊 SDF插值结果分析
 
-### 64x64x64网格插值示例
+### 16x16x16网格测试结果
 
-| 字段 | 网格形状 | 有效插值点 | 域外点 | 有效值范围 |
-|------|----------|------------|--------|------------|
-| **压力P** | (64,64,64) | 46,515 (17.7%) | 215,629 (82.3%) | [-1.446e+02, 7.672e+02] |
-| **速度Velocity** | (64,64,64,3) | 139,545 (17.7%) | 646,887 (82.3%) | [-6.843e-01, 7.314e-01] |
-| **CellID** | (64,64,64) | 0 (0.0%) | 262,144 (100.0%) | [-1.0, -1.0] |
+| 字段 | 网格形状 | 内部插值点 | 外部点 | 内部比例 | SDF范围 |
+|------|----------|------------|--------|----------|----------|
+| **压力P** | (16,16,16) | 103 | 3,993 | 2.51% | [-1.08e+02, 5.99e+02] |
+| **速度Velocity** | (16,16,16,3) | 103 | 3,993 | 2.51% | [-6.34e-01, 7.22e-01] |
+| **SDF** | (16,16,16) | 103 | 3,993 | 2.51% | [-6.80e-02, 5.36e-03] |
+
+### SDF值分布验证
+- **正值（内部）**：103个点 (2.51%)，范围[4.06e-05, 5.36e-03]
+- **负值（外部）**：3,993个点 (97.49%)，范围[-6.80e-02, -1.47e-05]
+- **零值（表面）**：0个点 (0.00%)
 
 ### 文件大小
-- **HDF5数据**：1.03 MB
-- **VTK可视化**：1.28 MB
+- **HDF5数据**：0.07 MB (16x16x16)
+- **VTK可视化**：对应的.vts文件
 
-## 🎨 可视化
+## 🎨 SDF可视化
 
-生成的VTK文件可以在以下软件中打开：
-- **ParaView**：推荐的专业可视化工具
-- **VisIt**：科学可视化软件
-- **其他VTK支持的工具**
+生成的VTK文件包含SDF字段，可以在ParaView中进行可视化：
 
 ```bash
-# 使用ParaView打开
-paraview matrix_data/vessel_170_64x64x64_complete.vts
+# 使用ParaView打开SDF可视化文件
+paraview matrix_data/vessel_170_sdf_16x16x16_corrected.vts
 ```
+
+### 可视化指南
+- **正值（红色）**：血管内部区域，显示真实插值值
+- **负值（蓝色）**：血管外部区域，显示距离值
+- **零值（绿色）**：血管壁表面
+- **等值面**：可设置SDF=0的等值面显示血管几何
 
 ## 🔬 技术特点
 
 ### SDF算法优势
-1. **精确的几何判断**：基于符号距离场的血管内外识别
-2. **物理意义明确**：域外值统一为-1.0，便于神经网络处理
-3. **计算效率高**：使用KD树加速最近邻搜索
+1. **真实几何**：基于STL几何的精确距离计算
+2. **物理意义明确**：
+   - 内部点：到血管壁的正距离
+   - 外部点：到血管壁的负距离
+3. **计算效率高**：批处理+KD树加速
+4. **内存优化**：分批计算避免内存溢出
 
-### 支持的数据类型
-- **标量场**：压力、密度、温度等
-- **矢量场**：速度、位移等（支持多维）
-- **标识场**：CellID、NodeID等
+### 几何处理能力
+- **STL文件支持**：标准三角形网格格式
+- **坐标缩放**：自动应用0.001缩放因子
+- **水密性检查**：验证网格完整性
+- **多尺度支持**：16x16x16到64x64x64网格
 
 ### 插值精度
 - **线性插值**：平衡精度和速度
-- **最近邻**：保持原始数据特征
-- **三次样条**：高精度插值（计算量大）
+- **SDF指导**：基于几何位置的智能插值
+- **边界处理**：精确的血管内外判断
 
 ## 🚧 开发状态
 
 ### ✅ 已完成功能
 - [x] VTK/VTM文件读取
-- [x] 符号距离场(SDF)计算框架
-- [x] 64×64×64网格插值
+- [x] STL几何文件处理
+- [x] 符号距离场(SDF)计算（基于真实几何）
+- [x] SDF值存储和可视化
+- [x] 多尺度网格支持（16x16x16, 32x32x32）
 - [x] 压力和速度场插值
 - [x] 矢量场支持
 - [x] HDF5存储和VTK输出
-- [x] 血管内外自动判断
-- [x] 域外点处理
+- [x] 血管内外精确判断
+- [x] 内存优化的批处理机制
+- [x] 坐标缩放（0.001倍）
 
 ### 🚧 进行中功能
-- [ ] 128×128×128默认网格插值
-- [ ] SDF面片提取优化
+- [ ] 64×64×64网格优化
 - [ ] 批量数据处理
-- [ ] 深度学习模型集成
+- [ ] SDF计算性能优化
+- [ ] 更多几何格式支持
 
 ### 📋 计划功能
 - [ ] CNN代理模型训练
 - [ ] 实时流场预测
 - [ ] 模型评估和验证
 - [ ] Web界面开发
+
+## 🧪 测试和验证
+
+### 运行测试
+```bash
+# SDF算法验证测试
+uv run python examples/test_sdf_16x16x16_corrected.py
+uv run python examples/test_sdf_32x32x32_corrected.py
+
+# STL几何处理测试
+uv run python examples/test_stl_sdf.py
+
+# SDF值保存测试
+uv run python examples/test_sdf_saving.py
+```
+
+### 验证要点
+- ✅ **SDF符号正确性**：内部>0，外部<0
+- ✅ **距离值合理性**：符合血管几何特征
+- ✅ **插值一致性**：内外点处理正确
+- ✅ **文件完整性**：HDF5和VTK文件正确生成
 
 ## 🤝 贡献指南
 
