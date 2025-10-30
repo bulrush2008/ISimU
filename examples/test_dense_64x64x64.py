@@ -10,7 +10,6 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
 from data_reader import VTKReader
 from interpolator_optimized import OptimizedGridInterpolator
 from hdf5_storage import HDF5Storage
-from stl_reader import load_portal_vein_geometry
 import numpy as np
 import h5py
 
@@ -35,21 +34,8 @@ def test_dense_64x64x64_interpolation():
     print(f"  - Ultra-dense grid for ultra-high quality visualization\n")
 
     try:
-        # 第一步：测试STL文件读取
-        print("Step 1: Testing STL file reading...")
-        stl_data = load_portal_vein_geometry(base_dir)
-
-        if stl_data is None:
-            print(f"  [ERROR] Failed to load STL file")
-            return False
-
-        print(f"  [OK] STL geometry loaded successfully")
-        print(f"    - Vertices: {stl_data['num_vertices']:,}")
-        print(f"    - Faces: {stl_data['num_faces']:,}")
-        print(f"    - Scale factor: {stl_data['scale_factor']}")
-
-        # 第二步：读取VTK文件
-        print(f"\nStep 2: Reading VTM file...")
+        # 第一步：读取VTK文件
+        print(f"Step 1: Reading VTM file...")
         reader = VTKReader()
         vtk_data = reader.read_vtm(vtm_file)
 
@@ -57,8 +43,8 @@ def test_dense_64x64x64_interpolation():
         print(f"  [OK] Successfully read VTM file")
         print(f"  - Available field variables: {available_fields}")
 
-        # 第三步：执行基于SDF的超密集网格插值
-        print(f"\nStep 3: Performing ultra-dense SDF interpolation with zero assignment...")
+        # 第二步：执行基于SDF的超密集网格插值
+        print(f"\nStep 2: Performing ultra-dense SDF interpolation with zero assignment...")
         interpolator = OptimizedGridInterpolator(
             grid_size=grid_size,
             method='linear',
@@ -73,8 +59,8 @@ def test_dense_64x64x64_interpolation():
 
         print(f"  [OK] Ultra-dense interpolation completed")
 
-        # 第四步：详细分析结果
-        print(f"\nStep 4: Detailed analysis of ultra-dense results...")
+        # 第三步：详细分析结果
+        print(f"\nStep 3: Detailed analysis of ultra-dense results...")
 
         # 分析SDF分布
         if 'SDF' in result['fields']:
@@ -143,8 +129,8 @@ def test_dense_64x64x64_interpolation():
                     comp_data = non_zero_velocity[:, i]
                     print(f"    - {component}-component range: [{np.min(comp_data):.6e}, {np.max(comp_data):.6e}]")
 
-        # 第五步：保存超密集网格结果
-        print(f"\nStep 5: Saving ultra-dense grid results...")
+        # 第四步：保存超密集网格结果
+        print(f"\nStep 4: Saving ultra-dense grid results...")
         storage = HDF5Storage()
 
         metadata = {
@@ -168,8 +154,8 @@ def test_dense_64x64x64_interpolation():
         file_size = os.path.getsize(output_h5) / (1024 * 1024)  # MB
         print(f"  - File size: {file_size:.2f} MB")
 
-        # 第六步：转换为VTK
-        print(f"\nStep 6: Converting to VTK for ParaView...")
+        # 第五步：转换为VTK
+        print(f"\nStep 5: Converting to VTK for ParaView...")
         try:
             storage.convert_to_vtk(output_h5, output_vts)
             print(f"  [OK] VTK file saved: {output_vts}")
@@ -177,8 +163,8 @@ def test_dense_64x64x64_interpolation():
         except Exception as e:
             print(f"  [WARNING] VTK conversion failed: {e}")
 
-        # 第七步：验证数据一致性
-        print(f"\nStep 7: Verifying data consistency...")
+        # 第六步：验证数据一致性
+        print(f"\nStep 6: Verifying data consistency...")
         with h5py.File(output_h5, 'r') as f:
             fields_in_h5 = list(f['fields'].keys())
             print(f"  [OK] Fields in HDF5: {fields_in_h5}")
