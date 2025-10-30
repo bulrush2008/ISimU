@@ -380,6 +380,82 @@ paraview matrix_data/dense_64x64x64_zero_assignment.vts  # 超高清版本
 3. **计算效率高**：批处理+KD树加速
 4. **内存优化**：分批计算避免内存溢出
 
+### 🔍 SDF计算原理详解
+
+#### 核心计算流程
+```
+STL几何文件 → 顶点+面片数据 → Trimesh对象 → 符号距离场计算
+```
+
+#### 详细实现步骤
+
+**第1步：STL几何数据提取**
+```python
+# 读取STL文件，获取几何数据
+stl_data = load_portal_vein_geometry()
+vertices = stl_data['vertices']     # 顶点坐标 (N, 3)
+faces = stl_data['faces']         # 面片索引 (M, 3)
+```
+
+**第2步：Trimesh对象构建**
+```python
+class VascularSDF:
+    def __init__(self, vertices, faces):
+        self.vertices = vertices          # 存储顶点数据
+        self.faces = faces                # 存储面片数据
+        self.mesh = trimesh.Trimesh(vertices, faces)  # 构建trimesh网格对象
+        self.kdtree = cKDTree(vertices)   # 构建KD树加速索引
+        self.face_normals = self._compute_face_normals()  # 预计算面片法向量
+```
+
+**第3步：符号距离场计算**
+```python
+def _compute_sdf_trimesh(self, points: np.ndarray) -> np.ndarray:
+    """使用trimesh计算精确SDF"""
+    # 应用trimesh的最近表面查询和符号距离计算
+    distances = self.mesh.nearest.signed_distance(points)
+    return distances
+    #
+    # 内部逻辑：
+    # 1. nearest：找到每个查询点的最近表面点
+    # 2. signed_distance：计算欧几里得距离并判断内外方向
+    # 3. 返回：正值（内部）或负值（外部）的距离值
+```
+
+#### SDF值定义
+- **φ > 0**：血管内部，距离血管壁的正距离
+- **φ < 0**：血管外部，距离血管壁的负距离
+- **φ = 0**：血管壁表面
+
+#### 计算方法对比
+
+| 方法 | 精度 | 速度 | 使用场景 |
+|------|------|------|----------|
+| **Trimesh.signed_distance** | 高 | 中 | 主要方法（精确） |
+| **KD树+法向量** | 中 | 快 | 备用方法（近似） |
+
+#### 批处理机制
+```python
+def compute_sdf(self, points: np.ndarray, batch_size: int = 1000):
+    """分批计算大量点的SDF，避免内存溢出"""
+    if len(points) <= batch_size:
+        return self._compute_sdf_trimesh(points)
+    else:
+        # 分批处理，每批1000个点
+        sdf_values = np.zeros(len(points))
+        for i in range(0, len(points), batch_size):
+            batch_points = points[i:i+batch_size]
+            batch_sdf = self._compute_sdf_trimesh(batch_points)
+            sdf_values[i:i+batch_size] = batch_sdf
+        return sdf_values
+```
+
+#### 性能特点
+- **空间复杂度**：O(N) - 与STL顶点数线性相关
+- **时间复杂度**：O(log N) - KD树加速的最近邻查询
+- **内存使用**：批处理机制，支持大规模网格计算
+- **数值稳定性**：基于真实几何，避免体数据重建误差
+
 ### ⚡ 性能优化策略
 
 #### ✅ **已实现的优化**
