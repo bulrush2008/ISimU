@@ -8,7 +8,7 @@ import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 from data_reader import VTKReader
-from interpolator import GridInterpolator
+from interpolator_optimized import OptimizedGridInterpolator
 from hdf5_storage import HDF5Storage
 from stl_reader import load_portal_vein_geometry
 import numpy as np
@@ -59,11 +59,12 @@ def test_dense_48x48x48_interpolation():
 
         # 第三步：执行基于SDF的密集网格插值
         print(f"\nStep 3: Performing dense SDF interpolation with zero assignment...")
-        interpolator = GridInterpolator(
+        interpolator = OptimizedGridInterpolator(
             grid_size=grid_size,
             method='linear',
             out_of_domain_value=0.0,  # 域外点赋零
-            use_sdf=True
+            use_sdf=True,
+            batch_size=15000  # 增大批处理大小
         )
 
         # 插值压力和速度
