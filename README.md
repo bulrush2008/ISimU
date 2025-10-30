@@ -29,36 +29,58 @@ ISimU/
 │   ├── sdf_utils.py               # 符号距离场工具
 │   └── stl_reader.py              # STL几何文件读取模块
 ├── examples/                      # 示例脚本
-│   ├── complete_64x64x64_interpolation.py        # 64x64x64完整插值
-│   ├── test_sdf_16x16x16_corrected.py            # 16x16x16 SDF验证测试
-│   ├── test_sdf_32x32x32_corrected.py            # 32x32x32 SDF验证测试
-│   ├── test_dense_48x48x48.py                   # 48x48x48密集网格测试
-│   ├── test_zero_assignment.py                  # 域外点赋零策略测试
-│   ├── test_stl_sdf.py                           # STL-based SDF测试
-│   └── test_sdf_saving.py                        # SDF值保存测试
+│   ├── quick_start.py                     # 快速开始示例
+│   ├── complete_pipeline.py                # 完整流程示例
+│   ├── complete_pipeline_en.py             # 完整流程示例（英文版）
+│   ├── complete_64x64x64_interpolation.py  # 64x64x64完整插值
+│   ├── test_sdf_16x16x16_corrected.py      # 16x16x16 SDF验证测试
+│   ├── test_sdf_32x32x32_corrected.py      # 32x32x32 SDF验证测试
+│   ├── test_dense_48x48x48.py              # 48x48x48密集网格测试
+│   ├── test_zero_assignment.py             # 域外点赋零策略测试
+│   ├── test_stl_sdf.py                      # STL-based SDF测试
+│   ├── test_sdf_saving.py                   # SDF值保存测试
+│   ├── test_custom_interpolation.py         # 自定义插值测试
+│   ├── test_sdf_interpolation.py            # SDF插值测试
+│   ├── test_sdf_small_grid.py               # 小网格SDF测试
+│   ├── test_stl_path.py                     # STL路径测试
+│   ├── test_sdf_32x32x32.py                 # 32x32x32 SDF测试
+│   ├── test_vtk_reader.py                   # VTK读取器测试
+│   └── INTERPOLATION_UPDATE_SUMMARY.md      # 插值更新总结
+├── tests/                         # 测试模块
+│   ├── __init__.py
+│   └── test_interpolation.py       # 插值测试
 ├── Data/                          # 原始CFD数据
 │   ├── vessel.000170.vtm          # 示例血管流数据
-│   └── geo/                         # 几何数据
-│       └── portal_vein_A.stl       # 门静脉血管几何（缩放0.001）
+│   ├── vessel/                    # 血管流数据分解
+│   │   └── 170/                   # 时间步170的数据
+│   │       ├── Part.0.Zone.1.vtu # 主要流场数据
+│   │       ├── Part.0.*.vtp      # 边界条件数据
+│   │       └── *.vtm              # 各部分VTM文件
+│   └── geo/                       # 几何数据
+│       ├── portal_vein_A.stl     # 门静脉血管几何（缩放0.001）
+│       ├── vessel.stp            # 血管几何（STEP格式）
+│       └── scaling.txt           # 缩放配置
 ├── matrix_data/                   # 生成的矩阵数据
-│   ├── vessel_170_sdf_16x16x16_corrected.h5     # 16x16x16 SDF插值结果
-│   ├── vessel_170_sdf_32x32x32_corrected.h5     # 32x32x32 SDF插值结果
-│   ├── test_zero_assignment.h5                   # 域外点赋零测试结果
-│   ├── dense_48x48x48_zero_assignment.h5        # 48x48x48密集网格结果
-│   └── *.vts                                    # VTK可视化文件
+│   ├── dense_48x48x48_zero_assignment.h5     # 48x48x48密集网格结果
+│   ├── dense_48x48x48_zero_assignment.vts    # VTK可视化文件
+│   └── *.h5                       # 其他生成的HDF5数据
 ├── pyproject.toml                 # 项目配置
+├── uv.lock                        # uv锁定文件
 ├── CLAUDE.md                      # 详细需求文档
-└── README.md                      # 项目说明
+├── README.md                      # 项目说明
+├── SDF_INTERPOLATION_UPDATE.md    # SDF插值更新文档
+├── SDF_VALUE_SAVING_SUMMARY.md    # SDF值保存总结
+└── INTERPOLATION_UPDATE_SUMMARY.md # 插值更新总结
 ```
 
 ## 🚀 快速开始
 
 ### 环境安装
 
-使用uv包管理器：
+本项目采用**uv**进行环境配置和依赖管理，这是推荐的方式：
 
 ```bash
-# 安装依赖
+# 安装依赖并创建虚拟环境
 uv sync
 
 # 激活虚拟环境（Windows）
@@ -66,13 +88,21 @@ uv sync
 
 # 激活虚拟环境（Linux/Mac）
 source .venv/bin/activate
+
+# 运行测试算例
+uv run python examples/quick_start.py
 ```
 
-或使用pip：
+或使用传统pip方式：
 
 ```bash
 pip install vtk numpy scipy h5py pandas torch matplotlib trimesh rtree
 ```
+
+**环境要求**：
+- Python >= 3.8
+- 推荐使用uv进行环境管理
+- 支持Windows、Linux和macOS
 
 ### 基本使用
 
@@ -124,6 +154,12 @@ print(f"  - 是否水密：{stl_data['is_watertight']}")
 #### 3. SDF插值测试
 
 ```bash
+# 快速开始示例
+uv run python examples/quick_start.py
+
+# 完整流程示例
+uv run python examples/complete_pipeline.py
+
 # 测试16x16x16网格的SDF算法
 uv run python examples/test_sdf_16x16x16_corrected.py
 
@@ -138,6 +174,15 @@ uv run python examples/test_dense_48x48x48.py
 
 # 测试完整的STL-based SDF流程
 uv run python examples/test_stl_sdf.py
+
+# 自定义插值测试
+uv run python examples/test_custom_interpolation.py
+
+# SDF值保存测试
+uv run python examples/test_sdf_saving.py
+
+# 小网格SDF测试
+uv run python examples/test_sdf_small_grid.py
 ```
 
 ## 🔧 核心功能模块
@@ -205,16 +250,17 @@ interpolator = GridInterpolator(
 ```
 HDF5文件结构:
 ├── fields/                   # 物理场数据
-│   ├── P                    # 压力场 (32,32,32)
-│   ├── Velocity             # 速度场 (32,32,32,3)
-│   ├── CellID               # 单元ID (32,32,32)
-│   └── SDF                  # 符号距离场 (32,32,32) ← 新增
+│   ├── P                    # 压力场 (48,48,48)
+│   ├── Velocity             # 速度场 (48,48,48,3)
+│   ├── CellID               # 单元ID (48,48,48)
+│   └── SDF                  # 符号距离场 (48,48,48)
 ├── grid/                    # 网格坐标
 │   ├── x, y, z             # 笛卡尔坐标
 └── metadata/                # 元数据信息
     ├── stl_file            # STL文件信息
     ├── scale_factor        # 缩放比例
-    └── sdf_used            # SDF使用状态
+    ├── sdf_used            # SDF使用状态
+    └── grid_size           # 网格尺寸信息
 ```
 
 #### 格式转换
@@ -259,10 +305,9 @@ HDF5文件结构:
 
 ### 文件大小对比
 - **HDF5数据**：
-  - 16x16x16：0.07 MB
-  - 32x32x32：0.28 MB
-  - 48x48x48：1.00 MB
-- **VTK可视化**：对应的.vts文件
+  - dense_48x48x48_zero_assignment.h5：1.00 MB
+- **VTK可视化**：
+  - dense_48x48x48_zero_assignment.vts：对应的可视化文件
 
 ## 🎨 SDF可视化
 
@@ -270,7 +315,6 @@ HDF5文件结构:
 
 ```bash
 # 使用ParaView打开SDF可视化文件
-paraview matrix_data/vessel_170_sdf_16x16x16_corrected.vts
 paraview matrix_data/dense_48x48x48_zero_assignment.vts
 ```
 
@@ -359,7 +403,7 @@ paraview matrix_data/dense_48x48x48_zero_assignment.vts
 
 ### 🚧 性能优化阶段（当前重点）
 - [x] 性能瓶颈分析和优化方案制定
-- [ ] **算法优化**：使用LinearNDInterpolator替代重复griddata调用
+- [x] 算法优化：使用LinearNDInterpolator替代重复griddata调用
 - [ ] **并行计算**：多进程SDF计算，多线程插值处理
 - [ ] **内存优化**：数据类型优化，流式处理
 - [ ] **性能基准测试**：建立完整的性能评估体系
@@ -376,6 +420,10 @@ paraview matrix_data/dense_48x48x48_zero_assignment.vts
 
 ### 运行测试
 ```bash
+# 快速开始和完整流程测试
+uv run python examples/quick_start.py
+uv run python examples/complete_pipeline.py
+
 # SDF算法验证测试
 uv run python examples/test_sdf_16x16x16_corrected.py
 uv run python examples/test_sdf_32x32x32_corrected.py
@@ -391,6 +439,12 @@ uv run python examples/test_stl_sdf.py
 
 # SDF值保存测试
 uv run python examples/test_sdf_saving.py
+
+# 自定义插值测试
+uv run python examples/test_custom_interpolation.py
+
+# 小网格SDF测试
+uv run python examples/test_sdf_small_grid.py
 
 # 性能优化测试（即将推出）
 # uv run python examples/test_performance_optimization.py
