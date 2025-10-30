@@ -102,7 +102,13 @@ ISimU (Intelligent Simulation for UNS) 是一个基于深度学习的CFD代理�
 
 ## 当前状态
 - 已有数据：vessel.000170.vtm 等血管流相关数据
-- Git 历史：第一次提交已准备算例数据x1
+- Git 历史发展：
+  - **7ef2ac8**：第一次提交，准备算例数据x1
+  - **58cb512**：基本实现UNS数据读取和插值功能，计算域外部插值需修改赋零
+  - **5eaab9b**：数据存储重组，原始数据保留在Data/，新生成数据移至matrix_data/
+  - **df83b4e**：确认速度场和压力场插值正确性，血管外部统一赋零值
+  - **2b0ce41**：优化代码结构，直接导入load_portal_vein_geometry
+  - **20989d8**：更新README.md & CLAUDE.md文件，与当下项目状态保持一致
 - 开发环境：Windows 环境
 - **环境管理**：本项目采用uv配置环境、执行测试算例
 - 已实现功能：
