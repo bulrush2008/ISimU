@@ -2,6 +2,10 @@
 Data/*
 matrix_data/*
 src/__pycache__/*
+src/data_processing/__pycache__/*
+src/neural_network/__pycache__/*
 .venv/
 #doc/*
 examples/__pycache__/*
+tests/__pycache__/*
+tests/data_processing/__pycache__/*
