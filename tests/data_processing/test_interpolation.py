@@ -10,11 +10,9 @@ import os
 import sys
 
 # 添加src路径
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
 
-from data_reader import VTKReader
-from interpolator import GridInterpolator
-from hdf5_storage import HDF5Storage
+from data_processing import VTKReader, GridInterpolator, HDF5Storage
 
 
 class TestInterpolation(unittest.TestCase):
@@ -23,7 +21,7 @@ class TestInterpolation(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         """测试类初始化"""
-        cls.test_data_dir = os.path.join(os.path.dirname(__file__), '..', 'Data')
+        cls.test_data_dir = os.path.join(os.path.dirname(__file__), '..', '..', 'Data')
         cls.vtm_file = os.path.join(cls.test_data_dir, 'vessel.000170.vtm')
         cls.output_h5 = os.path.join(cls.test_data_dir, 'test_output.h5')
 

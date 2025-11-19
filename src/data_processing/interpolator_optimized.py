@@ -8,8 +8,8 @@ from scipy.spatial import Delaunay
 from typing import Dict, List, Any, Tuple, Optional
 import warnings
 
-from data_reader import VTKReader
-from sdf_utils import create_sdf_from_vtk_data
+from .vtk_reader import VTKReader
+from .sdf_utils import create_sdf_from_vtk_data
 
 
 class OptimizedGridInterpolator:

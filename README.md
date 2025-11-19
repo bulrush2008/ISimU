@@ -16,62 +16,71 @@ ISimU是一个专业的CFD（计算流体动力学）代理模型开发平台，
 - ✅ **矢量场插值**：支持3维速度场插值
 - ✅ **多格式输出**：HDF5存储 + VTK可视化
 - ✅ **内存优化**：批处理机制支持大网格计算
+- 🧠 **神经网络架构**：多种网络架构支持FC/Conv/Hybrid
+- 🧠 **智能训练框架**：完整的训练、验证、早停机制
+- 🧠 **物理约束损失**：质量守恒、边界条件等物理先验
+- 🧠 **CFD专用指标**：速度方向误差、物理一致性评估
+- 🧠 **模型管理系统**：自动保存、版本控制、最佳模型选择
 
 ## 📁 项目结构
 
 ```
 ISimU/
-├── src/                           # 核心源代码
-│   ├── __init__.py
-│   ├── data_reader.py             # VTK文件读取模块
-│   ├── interpolator.py            # 原始网格插值模块（稳定版本）
-│   ├── interpolator_optimized.py  # 优化网格插值模块（性能优化版本）
-│   ├── hdf5_storage.py            # HDF5存储模块
-│   ├── sdf_utils.py               # 符号距离场工具
-│   └── stl_reader.py              # STL几何文件读取模块
-├── examples/                      # 示例脚本
-│   ├── quick_start.py                     # 快速开始示例
-│   ├── complete_pipeline.py                # 完整流程示例
-│   ├── complete_pipeline_en.py             # 完整流程示例（英文版）
-│   ├── complete_64x64x64_interpolation.py  # 64x64x64完整插值
-│   ├── test_dense_48x48x48.py              # 48x48x48密集网格测试（优化版本）
-│   ├── test_sdf_16x16x16_corrected.py      # 16x16x16 SDF验证测试
-│   ├── test_sdf_32x32x32_corrected.py      # 32x32x32 SDF验证测试
-│   ├── test_zero_assignment.py             # 域外点赋零策略测试
-│   ├── test_stl_sdf.py                      # STL-based SDF测试
-│   ├── test_sdf_saving.py                   # SDF值保存测试
-│   ├── test_custom_interpolation.py         # 自定义插值测试
-│   ├── test_sdf_interpolation.py            # SDF插值测试
-│   ├── test_sdf_small_grid.py               # 小网格SDF测试
-│   ├── test_stl_path.py                     # STL路径测试
-│   ├── test_sdf_32x32x32.py                 # 32x32x32 SDF测试
-│   ├── test_vtk_reader.py                   # VTK读取器测试
-│   └── INTERPOLATION_UPDATE_SUMMARY.md      # 插值更新总结
-├── doc/                           # 文档目录
-│   ├── performance_analysis.txt           # 性能分析原始数据
-│   └── performance_analysis_v0.1.txt       # 优化版本性能数据
-├── tests/                         # 测试模块
-│   ├── __init__.py
-│   └── test_interpolation.py       # 插值测试
-├── Data/                          # 原始CFD数据
-│   ├── vessel.000170.vtm          # 示例血管流数据
-│   ├── vessel/                    # 血管流数据分解
-│   │   └── 170/                   # 时间步170的数据
-│   │       ├── Part.0.Zone.1.vtu # 主要流场数据
-│   │       ├── Part.0.*.vtp      # 边界条件数据
-│   │       └── *.vtm              # 各部分VTM文件
-│   └── geo/                       # 几何数据
-│       ├── portal_vein_A.stl     # 门静脉血管几何（缩放0.001）
-│       ├── vessel.stp            # 血管几何（STEP格式）
-│       └── scaling.txt           # 缩放配置
-├── matrix_data/                   # 生成的矩阵数据
-│   ├── dense_48x48x48_zero_assignment.h5     # 48x48x48密集网格结果
-│   ├── dense_48x48x48_zero_assignment.vts    # VTK可视化文件
-│   └── *.h5                       # 其他生成的HDF5数据
-├── pyproject.toml                 # 项目配置
-├── uv.lock                        # uv锁定文件
-├── CLAUDE.md                      # 详细需求文档
-├── README.md                      # 项目说明
+├── src/                                    # 核心源代码
+│   ├── data_processing/                    # 数据处理模块
+│   │   ├── __init__.py
+│   │   ├── vtk_reader.py                   # VTK文件读取
+│   │   ├── interpolator.py                 # 网格插值
+│   │   ├── interpolator_optimized.py       # 优化插值
+│   │   ├── sdf_utils.py                    # SDF工具
+│   │   ├── stl_reader.py                   # STL读取
+│   │   └── hdf5_storage.py                 # 数据存储
+│   ├── neural_network/                     # 神经网络模块 ✅
+│   │   ├── __init__.py
+│   │   ├── models.py                       # 网络架构
+│   │   ├── trainers.py                     # 训练框架
+│   │   ├── datasets.py                     # 数据加载和预处理
+│   │   ├── losses.py                       # 损失函数
+│   │   └── metrics.py                      # 评估指标
+│   ├── inference/                          # 推理预测模块
+│   │   ├── __init__.py
+│   │   ├── predictor.py                    # 预测器 (待实现)
+│   │   ├── preprocessor.py                 # 预处理 (待实现)
+│   │   └── postprocessor.py                # 后处理 (待实现)
+│   └── utils/                              # 通用工具
+│       ├── __init__.py
+│       ├── visualization.py                # 可视化工具 (待实现)
+│       ├── io_utils.py                     # IO工具 (待实现)
+│       └── config.py                       # 配置管理 (待实现)
+├── examples/                               # 示例脚本
+│   ├── data_processing/                    # 数据处理示例
+│   │   ├── quick_start.py                  # 快速开始示例
+│   │   ├── complete_pipeline.py            # 完整流程示例
+│   │   ├── complete_64x64x64_interpolation.py  # 64x64x64插值
+│   │   └── test_*.py                       # 各种测试脚本
+│   ├── neural_network/                     # 神经网络示例 ✅
+│   │   └── train_model.py                  # 模型训练
+│   └── inference/                          # 推理示例 (待实现)
+│       └── predict_flow.py                 # 流场预测
+├── tests/                                  # 测试模块
+│   ├── data_processing/                    # 数据处理测试
+│   ├── neural_network/                     # 神经网络测试 (待实现)
+│   └── inference/                          # 推理测试 (待实现)
+├── Data/                                   # 原始CFD数据
+│   ├── vessel.000170.vtm                   # 示例血管流数据
+│   └── geo/                                # 几何数据
+├── matrix_data/                            # 生成的矩阵数据
+│   ├── dense_48x48x48_zero_assignment.h5   # 48x48x48结果
+│   └── dense_64x64x64_zero_assignment.h5   # 64x64x64结果
+├── models/                                 # 训练好的模型 (待实现)
+├── results/                                # 预测结果 (待实现)
+├── configs/                                # 配置文件 (待实现)
+├── docs/                                   # 文档目录
+│   ├── performance_analysis_v0.1.txt       # 性能分析数据
+│   └── performance_analysis_v0.2_64x64x64.txt
+├── pyproject.toml                           # 项目配置
+├── uv.lock                                  # uv锁定文件
+├── CLAUDE.md                                # 详细需求文档
 ├── SDF_INTERPOLATION_UPDATE.md    # SDF插值更新文档
 ├── SDF_VALUE_SAVING_SUMMARY.md    # SDF值保存总结
 └── INTERPOLATION_UPDATE_SUMMARY.md # 插值更新总结
@@ -93,8 +102,14 @@ uv sync
 # 激活虚拟环境（Linux/Mac）
 source .venv/bin/activate
 
-# 运行测试算例
-uv run python examples/quick_start.py
+# 运行数据处理示例
+uv run python examples/data_processing/quick_start.py
+
+# 运行完整流程示例
+uv run python examples/data_processing/complete_pipeline.py
+
+# 运行神经网络训练示例
+uv run python examples/neural_network/train_model.py
 ```
 
 或使用传统pip方式：
@@ -188,6 +203,155 @@ uv run python examples/test_sdf_saving.py
 # 小网格SDF测试
 uv run python examples/test_sdf_small_grid.py
 ```
+
+## 🧠 神经网络模块
+
+### 模块概述
+神经网络模块是ISimU的核心AI组件，负责从SDF（符号距离场）到速度场的映射学习。支持从预处理到训练部署的完整流程。
+
+### (1) 当前架构设计
+
+我们实现了**三种独立的网络架构**，用户可以根据数据规模和精度需求选择：
+
+#### A. 全连接网络 (`SDFToVelocityNet`)
+```
+SDF[262,144] ─→ Linear[262,144→1,024] ─→ ReLU ─→
+Linear[1,024→2,048] ─→ ReLU ─→ Linear[2,048→4,096] ─→
+ReLU ─→ Linear[4,096→2,048] ─→ ReLU ─→
+Linear[2,048→1,024] ─→ ReLU ─→
+Linear[1,024→786,432] ─→ 速度场(3个分量)
+```
+
+**特点**：
+- ✅ 直接的一维映射，实现简单
+- ✅ 参数量适中，训练稳定
+- ✅ 适合小数据集（1-5个样本）
+- ❌ 忽略空间局部结构
+
+#### B. 卷积神经网络 (`ConvolutionalSDFNet`)
+```
+SDF[1,64,64,64] ─→ Encoder(4层下采样) ─→ Bottleneck ─→
+Decoder(4层上采样+跳跃连接) ─→ Output[3,64,64,64] ─→ 展平
+```
+
+**特点**：
+- ✅ 保持3D空间结构
+- ✅ 捕捉局部流场特征
+- ✅ 适合大网格和复杂流场
+- ⚠️ 实现复杂，需要调优
+
+#### C. 混合网络 (`HybridSDFNet`)
+```
+SDF[262,144] ─→ FC特征提取 ─→ 重塑为3D ─→ Conv处理 ──→ 展平输出
+```
+
+**特点**：
+- ✅ 结合全局和局部特征
+- ✅ 灵活的架构组合
+- 🔧 需要平衡两部分权重
+
+### 数据处理流程
+```
+HDF5数据 → SDF[64,64,64] → 展平 → [网络处理] → 速度场展平 → 重塑 → 速度场[64,64,64,3]
+
+维度信息：
+- 输入: [batch_size, 262,144] (SDF展平)
+- 输出: [batch_size, 786,432] (速度场展平)
+- 网格点: 64³ = 262,144
+- 速度分量: 3个 (Vx, Vy, Vz)
+```
+
+### (2) 可能的改进思路
+
+#### A. 配合式架构设计
+
+**级联式 (Cascade)**
+```
+SDF ─→ [FC全局特征提取] ─→ [Conv空间细节处理] ─→ 速度场
+```
+- 先用全连接网络提取全局模式
+- 再用卷积网络处理局部细节
+- 优势：兼顾全局一致性和局部精度
+
+**并行式 (Parallel)**
+```
+SDF ─→ FC分支 ──┐
+           └─→ Conv分支 ──┤─→ [特征融合] ─→ 速度场
+```
+- 两个分支并行处理
+- 学习不同视角的特征表示
+- 优势：多角度信息融合
+
+**注意力引导式**
+```
+SDF ─→ [Conv生成注意力图] ──┐
+           └── [FC主干网络] ─────┤─→ [加权融合] ─→ 速度场
+```
+- 用卷积网络生成注意力权重
+- 引导全连接网络关注重要区域
+- 优势：提升关键区域精度
+
+#### B. 算法和性能优化
+
+**算法优化**
+- [ ] 实现混合架构的配合网络
+- [ ] 添加自注意力机制
+- [ ] 支持可变网格分辨率
+- [ ] 物理约束的更深度融合
+
+**性能优化**
+- [ ] 模型量化和剪枝
+- [ ] TensorRT推理加速
+- [ ] 分布式训练支持
+- [ ] 内存优化的大网格处理
+
+#### C. 数据和训练优化
+
+**数据增强**
+- [ ] 几何变换增强
+- [ ] 物理约束增强
+- [ ] 多时间步数据融合
+- [ ] 生成合成训练数据
+
+**训练策略**
+- [ ] 渐进式训练（从粗网格到细网格）
+- [ ] 课程学习（从简单到复杂）
+- [ ] 集成学习（迁移学习）
+- [ ] 元学习支持
+
+### 快速使用示例
+
+```python
+from neural_network import CFDDataModule, create_trainer
+
+# 1. 准备数据
+data_module = CFDDataModule(
+    data_dir="matrix_data",
+    grid_size=(64, 64, 64),
+    batch_size=2
+)
+
+# 2. 创建训练器
+trainer = create_trainer(
+    model_type='fc',  # 'fc', 'conv', 'hybrid'
+    data_module=data_module,
+    config={
+        'epochs': 1000,
+        'learning_rate': 1e-4,
+        'loss_function': 'combined'
+    }
+)
+
+# 3. 开始训练
+results = trainer.train(save_dir="models")
+```
+
+### 模块状态
+- ✅ **全连接网络**：完全可用
+- ⚠️ **卷积网络**：需要架构调优
+- 🔧 **混合网络**：框架就绪
+- ✅ **训练框架**：完整实现
+- ✅ **评估指标**：CFD专用指标
 
 ## 🔧 核心功能模块
 

@@ -9,7 +9,7 @@ import numpy as np
 from scipy.interpolate import griddata, LinearNDInterpolator, NearestNDInterpolator
 from typing import Dict, Any, Tuple, Optional, List
 import warnings
-from sdf_utils import VascularSDF, create_sdf_from_vtk_data
+from .sdf_utils import VascularSDF, create_sdf_from_vtk_data
 
 
 class GridInterpolator:

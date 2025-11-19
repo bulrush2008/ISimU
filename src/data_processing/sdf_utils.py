@@ -10,7 +10,7 @@ import trimesh
 from scipy.spatial import cKDTree
 from typing import Tuple, Optional, List, Dict, Any
 import warnings
-from stl_reader import load_portal_vein_geometry
+from .stl_reader import load_portal_vein_geometry
 
 
 class VascularSDF:
