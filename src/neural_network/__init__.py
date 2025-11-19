@@ -4,9 +4,7 @@
 """
 
 from .models import (
-    SDFToVelocityNet,
     ConvolutionalSDFNet,
-    HybridSDFNet,
     create_model
 )
 
@@ -38,9 +36,7 @@ from .trainers import (
 
 __all__ = [
     # Models
-    'SDFToVelocityNet',
     'ConvolutionalSDFNet',
-    'HybridSDFNet',
     'create_model',
 
     # Datasets

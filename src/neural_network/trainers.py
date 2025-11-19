@@ -216,13 +216,24 @@ class ModelTrainer:
         total_batches = len(self.train_loader)
         print(f"开始 Epoch {self.current_epoch + 1}/{self.config['epochs']}, 总批次: {total_batches}")
 
-        for batch_idx, (sdf, velocity) in enumerate(self.train_loader):
-            sdf = sdf.to(self.device)
-            velocity = velocity.to(self.device)
+        for batch_idx, batch_data in enumerate(self.train_loader):
+            # 处理可能包含边界条件的数据批次
+            if len(batch_data) == 3:
+                sdf, velocity, bc_params = batch_data
+                sdf = sdf.to(self.device)
+                velocity = velocity.to(self.device)
+                bc_params = bc_params.to(self.device)
+                has_bc = True
+            else:
+                sdf, velocity = batch_data
+                sdf = sdf.to(self.device)
+                velocity = velocity.to(self.device)
+                bc_params = None
+                has_bc = False
 
             # 前向传播
             self.optimizer.zero_grad()
-            pred_velocity = self.model(sdf)
+            pred_velocity = self.model(sdf, bc_params)
 
             # 计算损失
             if isinstance(self.loss_function, dict):
@@ -283,12 +294,21 @@ class ModelTrainer:
         val_metrics = []
 
         with torch.no_grad():
-            for sdf, velocity in self.val_loader:
-                sdf = sdf.to(self.device)
-                velocity = velocity.to(self.device)
+            for batch_data in self.val_loader:
+                # 处理可能包含边界条件的数据批次
+                if len(batch_data) == 3:
+                    sdf, velocity, bc_params = batch_data
+                    sdf = sdf.to(self.device)
+                    velocity = velocity.to(self.device)
+                    bc_params = bc_params.to(self.device)
+                else:
+                    sdf, velocity = batch_data
+                    sdf = sdf.to(self.device)
+                    velocity = velocity.to(self.device)
+                    bc_params = None
 
                 # 前向传播
-                pred_velocity = self.model(sdf)
+                pred_velocity = self.model(sdf, bc_params)
 
                 # 计算损失
                 if isinstance(self.loss_function, dict):
@@ -410,12 +430,21 @@ class ModelTrainer:
         all_metrics = []
 
         with torch.no_grad():
-            for sdf, velocity in data_loader:
-                sdf = sdf.to(self.device)
-                velocity = velocity.to(self.device)
+            for batch_data in data_loader:
+                # 处理可能包含边界条件的数据批次
+                if len(batch_data) == 3:
+                    sdf, velocity, bc_params = batch_data
+                    sdf = sdf.to(self.device)
+                    velocity = velocity.to(self.device)
+                    bc_params = bc_params.to(self.device)
+                else:
+                    sdf, velocity = batch_data
+                    sdf = sdf.to(self.device)
+                    velocity = velocity.to(self.device)
+                    bc_params = None
 
                 # 前向传播
-                pred_velocity = self.model(sdf)
+                pred_velocity = self.model(sdf, bc_params)
 
                 # 计算指标
                 metrics = self.metrics_calculator.compute_all_metrics(

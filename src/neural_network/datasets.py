@@ -150,7 +150,7 @@ class CFDataset(Dataset):
     def __len__(self) -> int:
         return len(self.data_files)
 
-    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
+    def __getitem__(self, idx: int) -> Union[Tuple[torch.Tensor, torch.Tensor], Tuple[torch.Tensor, torch.Tensor, torch.Tensor]]:
         """获取单个数据样本"""
         file_path = self.data_files[idx]
         sdf_flat, velocity_flat = self._load_data(file_path)
@@ -158,6 +158,16 @@ class CFDataset(Dataset):
         # 转换为PyTorch张量
         sdf_tensor = torch.FloatTensor(sdf_flat)
         velocity_tensor = torch.FloatTensor(velocity_flat)
+
+        # 如果HDF5文件中包含边界条件信息，则返回
+        try:
+            with h5py.File(file_path, 'r') as f:
+                if 'boundary_conditions' in f:
+                    bc_data = f['boundary_conditions'][:]
+                    bc_tensor = torch.FloatTensor(bc_data.flatten())
+                    return sdf_tensor, velocity_tensor, bc_tensor
+        except Exception:
+            pass
 
         return sdf_tensor, velocity_tensor
 
