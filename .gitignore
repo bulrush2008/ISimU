@@ -2,8 +2,13 @@
 .venv/
 
 data_UNS/*
+!data_UNS/README.md
+
 data_VMR/*
+!data_VMR/README.md
+
 data_matrix/*
+!data_matrix/README.md
 
 src/__pycache__/*
 src/data_processing/__pycache__/*
