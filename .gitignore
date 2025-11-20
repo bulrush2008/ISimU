@@ -15,6 +15,7 @@ src/data_processing/__pycache__/*
 src/neural_network/__pycache__/*
 
 examples/__pycache__/*
+pics/*
 
 tests/__pycache__/*
 tests/data_processing/__pycache__/*
