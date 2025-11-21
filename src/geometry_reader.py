@@ -5,7 +5,7 @@
 """
 
 import numpy as np
-from typing import Optional, Dict, Any, Union
+from typing import Optional, Dict, Any, Union, Tuple, List
 import warnings
 import os
 

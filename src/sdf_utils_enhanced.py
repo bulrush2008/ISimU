@@ -9,6 +9,7 @@ import trimesh
 from scipy.spatial import cKDTree
 from typing import Tuple, Optional, List, Dict, Any, Union
 import warnings
+import os
 
 from sdf_utils import VascularSDF  # 重用现有的VascularSDF类
 from geometry_reader import GeometryReader
