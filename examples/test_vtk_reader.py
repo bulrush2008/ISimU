@@ -16,12 +16,12 @@ def main():
     reader = VTKReader()
 
     # 测试读取主VTM文件
-    vtm_file = "../Data/vessel.000170.vtm"
+    vtm_file = "../data_UNS/vessel.000170.vtm"
     print(f"\n1. 读取VTM文件: {vtm_file}")
 
     try:
         data = reader.read_vtm(vtm_file)
-        print(f"✓ 成功读取VTM文件")
+        print(f"[OK] 成功读取VTM文件")
         print(f"  - 数据块数量: {data['num_blocks']}")
 
         # 显示各数据块信息
@@ -39,19 +39,19 @@ def main():
 
         # 显示所有可用场变量
         fields = reader.get_available_fields(data)
-        print(f"\n✓ 所有可用物理场变量: {fields}")
+        print(f"\n[OK] 所有可用物理场变量: {fields}")
 
     except Exception as e:
-        print(f"✗ 读取失败: {e}")
+        print(f"[ERROR] 读取失败: {e}")
         return False
 
     # 测试读取具体的VTU文件
-    vtu_file = "../Data/vessel/170/Part.0.Zone.1.vtu"
+    vtu_file = "../data_UNS/vessel/170/Part.0.Zone.1.vtu"
     print(f"\n2. 读取VTU文件: {vtu_file}")
 
     try:
         vtu_data = reader.read_vtu(vtu_file)
-        print(f"✓ 成功读取VTU文件")
+        print(f"[OK] 成功读取VTU文件")
         print(f"  - 网格类型: {vtu_data['type']}")
         print(f"  - 点数: {vtu_data['num_points']}")
         print(f"  - 单元数: {vtu_data['num_cells']}")
@@ -62,7 +62,7 @@ def main():
                 print(f"  - {field_name}: {field_data.shape} ({field_data.dtype})")
 
     except Exception as e:
-        print(f"✗ 读取失败: {e}")
+        print(f"[ERROR] 读取失败: {e}")
         return False
 
     print(f"\n=== 测试完成 ===")

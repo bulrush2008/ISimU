@@ -217,7 +217,7 @@ def load_portal_vein_geometry(base_dir: str = None) -> Optional[Dict[str, Any]]:
         src_dir = os.path.dirname(current_file)
         base_dir = os.path.dirname(src_dir)
 
-    stl_path = os.path.join(base_dir, "Data", "geo", "portal_vein_A.stl")
+    stl_path = os.path.join(base_dir, "data_UNS", "geo", "portal_vein_A.stl")
 
     # 调试输出路径
     print(f"Looking for STL file at: {stl_path}")

@@ -107,18 +107,24 @@ class OptimizedGridInterpolator:
         """
         执行优化的插值计算
         """
-        # 提取第一个非空数据块
-        source_block = None
-        for block in vtk_data['blocks']:
-            if block['num_points'] > 0:
-                source_block = block
-                break
+        # 处理VTM和VTU两种数据格式
+        if 'blocks' in vtk_data:
+            # VTM格式：提取第一个非空数据块
+            source_block = None
+            for block in vtk_data['blocks']:
+                if block['num_points'] > 0:
+                    source_block = block
+                    break
 
-        if source_block is None:
-            raise ValueError("没有找到有效的数据块")
+            if source_block is None:
+                raise ValueError("没有找到有效的数据块")
 
-        vertices = source_block['vertices']
-        point_data = source_block['point_data']
+            vertices = source_block['vertices']
+            point_data = source_block['point_data']
+        else:
+            # VTU格式：直接使用数据
+            vertices = vtk_data['vertices']
+            point_data = vtk_data['point_data']
 
         # 设置笛卡尔网格
         self.setup_cartesian_grid(vertices)
