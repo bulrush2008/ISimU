@@ -6,6 +6,7 @@ data_UNS/*
 
 data_VMR/*
 !data_VMR/README.md
+!data_VMR/geo-flow.json
 
 data_matrix/*
 !data_matrix/README.md
