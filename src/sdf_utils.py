@@ -2,7 +2,7 @@
 符号距离场（SDF）工具模块
 
 用于判断笛卡尔网格点是否在血管内部
-支持从STL几何文件计算真实的符号距离场
+支持从STL和VTP几何文件计算真实的符号距离场
 """
 
 import numpy as np
@@ -11,6 +11,7 @@ from scipy.spatial import cKDTree
 from typing import Tuple, Optional, List, Dict, Any
 import warnings
 from stl_reader import load_portal_vein_geometry
+from vtp_reader import load_vmr_geometry
 
 
 class VascularSDF:
@@ -218,41 +219,122 @@ def extract_surface_from_vtk_data(vtk_data: Dict[str, Any]) -> Optional[Tuple[np
     return vertices, faces
 
 
-def create_sdf_from_vtk_data(vtk_data: Dict[str, Any]) -> Optional[VascularSDF]:
+def create_sdf_from_vtk_data(vtk_data: Dict[str, Any], geometry_source: str = 'auto') -> Optional[VascularSDF]:
     """
     从VTK数据创建SDF计算器
-    首先尝试从STL文件创建，如果失败则尝试从VTK数据提取表面
+    支持多种几何数据源：STL、VTP、VTK提取表面
 
     Args:
         vtk_data: VTK读取的数据
+        geometry_source: 几何数据源 ('auto', 'stl', 'vtp', 'vtk')
 
     Returns:
         VascularSDF对象或None
     """
-    # 首先尝试从STL文件创建SDF（根据CLAUDE.md需求）
-    print("Attempting to create SDF from STL geometry...")
-    stl_data = load_portal_vein_geometry()
 
-    if stl_data is not None:
-        print("  [OK] Successfully loaded STL geometry for SDF calculation")
-        vertices = stl_data['vertices']
-        faces = stl_data['faces']
+    if geometry_source == 'auto':
+        # 自动选择：优先尝试VTP，然后STL，最后VTK提取
+        print("Attempting to create SDF from geometry (auto mode)...")
+
+        # 尝试VTP几何
+        vtp_data = load_vmr_geometry("0007_H_AO_H")  # 使用第一个可用病例
+        if vtp_data is not None:
+            print("  [OK] Successfully loaded VTP geometry for SDF calculation")
+            vertices = vtp_data['vertices']
+            faces = vtp_data['faces']
+            sdf = VascularSDF(vertices, faces)
+            sdf.geometry_data = vtp_data
+            sdf.geometry_source = 'VTP'
+            return sdf
+
+        # 回退到STL几何
+        stl_data = load_portal_vein_geometry()
+        if stl_data is not None:
+            print("  [OK] Successfully loaded STL geometry for SDF calculation")
+            vertices = stl_data['vertices']
+            faces = stl_data['faces']
+            sdf = VascularSDF(vertices, faces)
+            sdf.stl_data = stl_data
+            sdf.geometry_source = 'STL'
+            return sdf
+
+        # 最后回退到VTK表面提取
+        print("  [WARNING] No external geometry found, trying VTK surface extraction...")
+        surface_data = extract_surface_from_vtk_data(vtk_data)
+        if surface_data is not None:
+            vertices, faces = surface_data
+            sdf = VascularSDF(vertices, faces)
+            sdf.geometry_source = 'VTK'
+            return sdf
+
+    elif geometry_source == 'stl':
+        print("Attempting to create SDF from STL geometry...")
+        stl_data = load_portal_vein_geometry()
+
+        if stl_data is not None:
+            print("  [OK] Successfully loaded STL geometry for SDF calculation")
+            vertices = stl_data['vertices']
+            faces = stl_data['faces']
+            sdf = VascularSDF(vertices, faces)
+            sdf.stl_data = stl_data
+            sdf.geometry_source = 'STL'
+            return sdf
+
+    elif geometry_source == 'vtp':
+        print("Attempting to create SDF from VTP geometry...")
+        vtp_data = load_vmr_geometry("0007_H_AO_H")  # 默认使用第一个病例
+
+        if vtp_data is not None:
+            print("  [OK] Successfully loaded VTP geometry for SDF calculation")
+            vertices = vtp_data['vertices']
+            faces = vtp_data['faces']
+            sdf = VascularSDF(vertices, faces)
+            sdf.geometry_data = vtp_data
+            sdf.geometry_source = 'VTP'
+            return sdf
+
+    elif geometry_source == 'vtk':
+        print("Attempting to create SDF from VTK surface extraction...")
+        surface_data = extract_surface_from_vtk_data(vtk_data)
+
+        if surface_data is not None:
+            vertices, faces = surface_data
+            sdf = VascularSDF(vertices, faces)
+            sdf.geometry_source = 'VTK'
+            return sdf
+
+    print("  [ERROR] Failed to create SDF from any geometry source")
+    return None
+
+
+def create_sdf_from_vmr_case(case_id: str = "0007_H_AO_H") -> Optional[VascularSDF]:
+    """
+    从VMR病例创建SDF计算器
+
+    Args:
+        case_id: VMR病例ID
+
+    Returns:
+        VascularSDF对象或None
+    """
+    print(f"Creating SDF from VMR case: {case_id}")
+
+    vtp_data = load_vmr_geometry(case_id)
+
+    if vtp_data is not None:
+        print(f"  [OK] Successfully loaded VMR geometry for case {case_id}")
+        vertices = vtp_data['vertices']
+        faces = vtp_data['faces']
 
         # 创建SDF计算器
         sdf = VascularSDF(vertices, faces)
 
         # 设置几何信息
-        sdf.stl_data = stl_data
+        sdf.geometry_data = vtp_data
+        sdf.case_id = case_id
+        sdf.geometry_source = 'VMR_VTP'
 
         return sdf
 
-    print("  [WARNING] Failed to load STL geometry, trying VTK surface extraction...")
-
-    # 回退到VTK表面提取
-    surface_data = extract_surface_from_vtk_data(vtk_data)
-
-    if surface_data is None:
-        return None
-
-    vertices, faces = surface_data
-    return VascularSDF(vertices, faces)
+    print(f"  [ERROR] Failed to load VMR geometry for case {case_id}")
+    return None
